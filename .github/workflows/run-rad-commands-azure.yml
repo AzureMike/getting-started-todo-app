@@ -290,6 +290,7 @@ jobs:
 
       - name: Publish deployed graph and status
         if: success()
+        continue-on-error: true
         uses: radius-project/radius/.github/extension/actions/publish-deploy-status@main
         with:
           environment: ${{ inputs.environment }}
