@@ -5,10 +5,32 @@ param environment string
 @secure()
 param mysqlPassword string
 
+@secure()
+param registryUsername string
+
+@secure()
+param registryPassword string
+
 resource todoApp 'Radius.Core/applications@2025-08-01-preview' = {
   name: 'todo-app'
   properties: {
     environment: environment
+  }
+}
+
+resource registryCreds 'Radius.Security/secrets@2025-08-01-preview' = {
+  name: 'radius-ghcr-registry-creds'
+  properties: {
+    environment: environment
+    application: todoApp.id
+    data: {
+      username: {
+        value: registryUsername
+      }
+      password: {
+        value: registryPassword
+      }
+    }
   }
 }
 
@@ -29,14 +51,17 @@ resource backendImage 'Radius.Compute/containerImages@2025-08-01-preview' = {
   properties: {
     environment: environment
     application: todoApp.id
-    tag: '55680777bc46c59d3fe0ab9ff7e79ee947d0c757'
+    tag: '3d8d55accd3c130c9258df30674c6a180ee0d3f6'
     build: {
-      source: 'git::https://github.com/AzureMike/getting-started-todo-app.git?ref=55680777bc46c59d3fe0ab9ff7e79ee947d0c757'
+      source: 'git::https://github.com/AzureMike/getting-started-todo-app.git?ref=3d8d55accd3c130c9258df30674c6a180ee0d3f6'
       platforms: [
         'linux/amd64'
       ]
     }
   }
+  dependsOn: [
+    registryCreds
+  ]
 }
 
 resource backendContainer 'Radius.Compute/containers@2025-08-01-preview' = {
@@ -64,6 +89,9 @@ resource backendContainer 'Radius.Compute/containers@2025-08-01-preview' = {
           }
           MYSQL_DB: {
             value: 'todos'
+          }
+          MYSQL_SSL: {
+            value: 'true'
           }
         }
       }
