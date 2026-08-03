@@ -223,11 +223,10 @@ jobs:
           BUILD_REGISTRY=$(echo "${{ vars.RADIUS_BUILD_REGISTRY || format('ghcr.io/{0}', github.repository) }}" | tr '[:upper:]' '[:lower:]')
           REGISTRY_SECRET_NAME="radius-ghcr-registry-creds"
           kubectl --kubeconfig "$RADIUS_TARGET_KUBECONFIG" get namespace "$NAMESPACE"
-          kubectl --kubeconfig "$RADIUS_TARGET_KUBECONFIG" create secret docker-registry "$REGISTRY_SECRET_NAME" \
+          kubectl --kubeconfig "$RADIUS_TARGET_KUBECONFIG" create secret generic "$REGISTRY_SECRET_NAME" \
             --namespace "$NAMESPACE" \
-            --docker-server=ghcr.io \
-            --docker-username="${{ github.actor }}" \
-            --docker-password="${{ secrets.GITHUB_TOKEN }}" \
+            --from-literal=username="${{ github.actor }}" \
+            --from-literal=password="${{ secrets.GITHUB_TOKEN }}" \
             --dry-run=client -o yaml | kubectl --kubeconfig "$RADIUS_TARGET_KUBECONFIG" apply -f -
 
           # Download the default Azure recipe pack from resource-types-contrib,
