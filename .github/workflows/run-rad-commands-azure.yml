@@ -187,7 +187,7 @@ jobs:
       - name: Restore Radius state
         uses: radius-project/radius/.github/extension/actions/restore-state@main
         with:
-          namespace: ${{ vars.RADIUS_NAMESPACE || 'default' }}
+          namespace: ${{ vars.KUBERNETES_NAMESPACE || 'default' }}
 
       - name: Register cloud credentials with Radius
         run: |
@@ -207,27 +207,21 @@ jobs:
 
       - name: Create Radius environment and recipe pack
         run: |
-          NAMESPACE="${{ vars.RADIUS_NAMESPACE || 'default' }}"
+          NAMESPACE="${{ vars.KUBERNETES_NAMESPACE || 'default' }}"
 
           # Registry and credentials for the Radius.Compute/containerImages recipe.
           # The recipe builds images with the in-pod BuildKit and pushes them to
           # $BUILD_REGISTRY, authenticating with the Kubernetes Secret named
-          # $REGISTRY_SECRET_NAME. The workflow creates that platform-owned Secret
-          # on the target cluster with the exact username/password keys the Recipe
-          # reads. Its name is wired into the pack through
+          # $REGISTRY_SECRET_NAME. That Secret is created on the target cluster by
+          # the app's Radius.Security/secrets resource during `rad deploy` (fed by
+          # the registryUsername/registryPassword parameters conditionally injected
+          # by the run-rad-commands action when the app declares them). Only the secret
+          # NAME is wired here via the recipe pack's
           # containerImagesRegistrySecretName. $BUILD_REGISTRY is
           # ghcr.io/<owner>/<repo> so images land under the repository's package
           # namespace; it must be lowercase.
           BUILD_REGISTRY=$(echo "${{ vars.RADIUS_BUILD_REGISTRY || format('ghcr.io/{0}', github.repository) }}" | tr '[:upper:]' '[:lower:]')
           REGISTRY_SECRET_NAME="radius-ghcr-registry-creds"
-          kubectl --kubeconfig "$RADIUS_TARGET_KUBECONFIG" get namespace "$NAMESPACE"
-          kubectl --kubeconfig "$RADIUS_TARGET_KUBECONFIG" delete secret "$REGISTRY_SECRET_NAME" \
-            --namespace "$NAMESPACE" --ignore-not-found
-          kubectl --kubeconfig "$RADIUS_TARGET_KUBECONFIG" create secret generic "$REGISTRY_SECRET_NAME" \
-            --namespace "$NAMESPACE" \
-            --from-literal=username="${{ github.actor }}" \
-            --from-literal=password="${{ secrets.GITHUB_TOKEN }}" \
-            --dry-run=client -o yaml | kubectl --kubeconfig "$RADIUS_TARGET_KUBECONFIG" apply -f -
 
           # Download the default Azure recipe pack from resource-types-contrib,
           # pinned to $RECIPE_PACK_REF. The recipe logic lives upstream; here we
@@ -282,7 +276,7 @@ jobs:
           environment: ${{ inputs.environment }}
           app-file: ${{ env.APP_FILE }}
           app-image: ${{ env.APP_IMAGE }}
-          namespace: ${{ vars.RADIUS_NAMESPACE || 'default' }}
+          namespace: ${{ vars.KUBERNETES_NAMESPACE || 'default' }}
           rad-commands: ${{ inputs.rad_commands || vars.RADIUS_RAD_COMMANDS }}
           deploy-params: ${{ secrets.RADIUS_DEPLOY_PARAMS }}
           registry-username: ${{ github.actor }}
@@ -290,7 +284,6 @@ jobs:
 
       - name: Publish deployed graph and status
         if: success()
-        continue-on-error: true
         uses: radius-project/radius/.github/extension/actions/publish-deploy-status@main
         with:
           environment: ${{ inputs.environment }}
